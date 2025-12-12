@@ -2,7 +2,7 @@ FROM alpine:3
 
 LABEL MAINTAINER="JoKneeMo"
 
-ARG UNIMUS_VERSION=2.5.0
+ARG UNIMUS_VERSION="-%20Latest"
 
 RUN apk update && apk add --no-cache \
     curl \
