@@ -2,10 +2,10 @@ FROM alpine:3
 
 ARG UNIMUS_VERSION="-%20Latest"
 
-LABEL org.opencontainers.image.authors="JoKneeMo <https://github.com/JoKneeMo>" \
-    org.opencontainers.image.source="https://github.com/JoKneeMo/unimus-docker" \
-    org.opencontainers.image.title="Unimus Server" \
-    org.opencontainers.image.version="${UNIMUS_VERSION}"
+LABEL org.opencontainers.image.authors="JoKneeMo <https://github.com/JoKneeMo>"
+LABEL org.opencontainers.image.source="https://github.com/JoKneeMo/unimus-docker"
+LABEL org.opencontainers.image.title="Unimus Server"
+LABEL org.opencontainers.image.version="${UNIMUS_VERSION}"
 
 RUN apk update && apk add --no-cache \
     curl \
