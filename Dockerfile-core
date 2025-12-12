@@ -4,7 +4,7 @@ ARG UNIMUS_VERSION="-%20Latest"
 
 LABEL org.opencontainers.image.authors="JoKneeMo <https://github.com/JoKneeMo>" \
     org.opencontainers.image.source="https://github.com/JoKneeMo/unimus-docker" \
-    org.opencontainers.image.title="Unimus Server" \
+    org.opencontainers.image.title="Unimus Core" \
     org.opencontainers.image.version="${UNIMUS_VERSION}"
 
 RUN apk update && apk add --no-cache \
@@ -22,36 +22,29 @@ RUN apk update && apk add --no-cache \
     && echo "UTC" > /etc/timezone
 
 RUN if [ "${UNIMUS_VERSION}" = "dev" ]; then \
-        DOWNLOAD_URL="https://download.unimus.net/unimus-dev/Unimus.jar"; \
+        DOWNLOAD_URL="https://download.unimus.net/unimus-core-dev/Unimus-Core.jar"; \
     else \
-        DOWNLOAD_URL="https://download.unimus.net/unimus/${UNIMUS_VERSION}/Unimus.jar"; \
+        DOWNLOAD_URL="https://download.unimus.net/unimus-core/${UNIMUS_VERSION}/Unimus-Core.jar"; \
     fi \
-    && curl -L "${DOWNLOAD_URL}" --create-dirs -o /opt/unimus/Unimus.jar \
+    && curl -L "${DOWNLOAD_URL}" --create-dirs -o /opt/unimus-core/Unimus-Core.jar \
     && mkdir -p \
-        /etc/unimus \
-        /var/log/unimus \
-        /etc/default \
+        /etc/unimus-core \
+        /var/log/unimus-core \
     && touch \
-        /etc/unimus/unimus.properties \
-        /etc/default/unimus \
+        /etc/unimus-core/unimus-core.properties \
     && chown -R unimus:unimus \
-        /opt/unimus \
-        /etc/unimus \
-        /var/log/unimus \
-        /etc/default/unimus \
+        /opt/unimus-core \
+        /etc/unimus-core \
+        /var/log/unimus-core \
         /etc/timezone
 
-COPY --chmod=755 entrypoint.sh /entrypoint.sh
+COPY --chmod=755 entrypoint-core.sh /entrypoint.sh
 
-EXPOSE 8085
-EXPOSE 5509
-
-WORKDIR /opt/unimus
+WORKDIR /opt/unimus-core
 
 USER unimus
 
 ENV TZ=UTC \
-    MAKE_PROPERTIES=true \
-    MAKE_DEFAULTS=true
+    MAKE_PROPERTIES=true
 
 ENTRYPOINT ["tini", "-g", "--", "/entrypoint.sh"]

@@ -1,13 +1,13 @@
-name: Dev Build Unimus
+name: Dev Build Unimus Core
 
 on:
   schedule:
-    - cron: '12 * * * *'
+    - cron: '14 * * * *'
   workflow_dispatch:
 
 env:
   REGISTRY: docker.io
-  IMAGE_NAME: jokneemo/unimus
+  IMAGE_NAME: jokneemo/unimus-core
 
 jobs:
   check-dev:
@@ -22,12 +22,12 @@ jobs:
 
       - name: Download Dev Jar
         run: |
-          curl -L "https://download.unimus.net/unimus-dev/Unimus.jar" -o Unimus.jar
+          curl -L "https://download.unimus.net/unimus-core-dev/Unimus-Core.jar" -o Unimus-Core.jar
 
       - name: Calculate Checksum
         id: checksum
         run: |
-          SHA256=$(sha256sum Unimus.jar | awk '{print $1}')
+          SHA256=$(sha256sum Unimus-Core.jar | awk '{print $1}')
           echo "Current SHA256: $SHA256"
           echo "sha256=$SHA256" >> $GITHUB_OUTPUT
 
@@ -46,7 +46,7 @@ jobs:
           echo "new_build=true" >> $GITHUB_OUTPUT
           
           # Fetch version
-          DEV_VERSION_STRING=$(curl -s "https://download.unimus.net/unimus-dev/Unimus.dev.version")
+          DEV_VERSION_STRING=$(curl -s "https://download.unimus.net/unimus-core-dev/Unimus-Core.dev.version")
           TIMESTAMP=$(date +%Y%m%d%H%M)
           
           VERSION_LABEL="dev-${DEV_VERSION_STRING}-${TIMESTAMP}"
@@ -55,6 +55,12 @@ jobs:
           echo "version_label=$VERSION_LABEL" >> $GITHUB_OUTPUT
           echo "timestamp=$TIMESTAMP" >> $GITHUB_OUTPUT
 
+      - name: Create dummy cache file
+        if: steps.cache-restore.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p .dev-checksum
+          echo "${{ steps.checksum.outputs.sha256 }}" > .dev-checksum/checksum
+
       - name: Save Checksum to Cache
         if: steps.cache-restore.outputs.cache-hit != 'true'
         uses: actions/cache/save@v3
@@ -62,12 +68,6 @@ jobs:
           path: .dev-checksum
           # Use the checksum itself as the key. If it exists next time, it's a hit.
           key: dev-checksum-${{ steps.checksum.outputs.sha256 }}
-      
-      - name: Create dummy cache file
-        if: steps.cache-restore.outputs.cache-hit != 'true'
-        run: |
-          mkdir -p .dev-checksum
-          echo "${{ steps.checksum.outputs.sha256 }}" > .dev-checksum/checksum
 
   build-and-push-dev:
     needs: check-dev
@@ -103,6 +103,7 @@ jobs:
         uses: docker/build-push-action@v4
         with:
           context: .
+          file: Dockerfile-core
           push: true
           platforms: linux/amd64,linux/arm64
           build-args: |

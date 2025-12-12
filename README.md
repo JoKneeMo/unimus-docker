@@ -1,13 +1,20 @@
 # Unimus Docker
+[![Auto Release](https://github.com/JoKneeMo/unimus-docker/actions/workflows/auto-release.yml/badge.svg?branch=main)](https://github.com/JoKneeMo/unimus-docker/actions/workflows/auto-release.yml)  [![Dev Server Build](https://github.com/JoKneeMo/unimus-docker/actions/workflows/dev-server.yml/badge.svg?branch=main)](https://github.com/JoKneeMo/unimus-docker/actions/workflows/dev-server.yml)  [![Dev Core Build](https://github.com/JoKneeMo/unimus-docker/actions/workflows/dev-core.yml/badge.svg?branch=main)](https://github.com/JoKneeMo/unimus-docker/actions/workflows/dev-core.yml)
 
 Lightweight Docker container for [Unimus](https://unimus.net/), a network automation and configuration management solution.
 
 Available on:
- - Docker Hub: [jokneemo/unimus](https://hub.docker.com/r/jokneemo/unimus)
- - GitHub Container Registry: [ghcr.io/jokneemo/unimus](https://github.com/jokneemo/unimus-docker/pkgs/container/unimus)
+ - Server
+    - Docker Hub: [jokneemo/unimus](https://hub.docker.com/r/jokneemo/unimus)
+    - GitHub Container Registry: [ghcr.io/jokneemo/unimus](https://github.com/jokneemo/unimus-docker/pkgs/container/unimus)
+ - Core
+    - Docker Hub: [jokneemo/unimus-core](https://hub.docker.com/r/jokneemo/unimus-core)
+    - GitHub Container Registry: [ghcr.io/jokneemo/unimus-core](https://github.com/jokneemo/unimus-docker/pkgs/container/unimus-core)
+
 
 ## Docker Compose
 
+### Unimus Server
 ```yaml
 name: unimus-server
 services:
@@ -44,9 +51,33 @@ services:
             - ./postgres:/var/lib/postgresql/data
 ```
 
+### Unimus Core
+```yaml
+name: unimus-core
+services:
+    unimus-core:
+        image: jokneemo/unimus-core:latest # Docker Hub
+        #image: ghcr.io/jokneemo/unimus-core:latest # GitHub Container Registry
+        restart: unless-stopped
+        volumes:
+            - /usr/share/zoneinfo/America/New_York:/etc/localtime:ro
+        environment:
+          TZ: America/New_York
+
+          # Unimus Props (/etc/unimus-core/unimus-core.properties)
+          PROP_UNIMUS_ADDRESS: 10.10.10.58
+          PROP_UNIMUS_PORT: 5509
+          PROP_UNIMUS_ACCESS_KEY: really_long_access_key_from_the_zone_of_this_core
+
+          # Java Settings
+          #JAVA_XMS: 512m
+          #JAVA_XMX: 1024m
+          #JAVA_OPTS:
+```
+
 ## Configuration Variables
 
-### Unimus Properties
+### Unimus Server Properties
 Any setting in `unimus.properties` can be set via environment variables prefixed with `PROP_`. The container startup script automatically converts these variables:
 1. Removes the `PROP_` prefix.
 2. Converts to lowercase.
@@ -70,6 +101,23 @@ Any setting in `unimus.properties` can be set via environment variables prefixed
 
 For a full list of available properties, see the [Unimus Wiki](https://wiki.unimus.net/display/UNPUB/Initial+configuration).
 
+### Unimus Core Properties
+Any setting in `unimus-core.properties` can be set via environment variables prefixed with `PROP_`. The container startup script automatically converts these variables:
+1. Removes the `PROP_` prefix.
+2. Converts to lowercase.
+3. Replaces underscores `_` with dots `.`.
+
+**Example:** `PROP_UNIMUS_ADDRESS` becomes `unimus.address`.
+
+| Variable | Property | Description |
+|---|---|---|
+| `PROP_UNIMUS_ADDRESS` | `unimus.address` | **Required.** The IP address or hostname of the Unimus server. |
+| `PROP_UNIMUS_PORT` | `unimus.port` | **Required.** The port number of the Unimus server. |
+| `PROP_UNIMUS_ACCESS_KEY` | `unimus.access.key` | **Required.** The access key for the Unimus server. |
+
+For a full list of available properties, see the [Unimus Wiki](https://wiki.unimus.net/display/UNPUB/Installing+Unimus+Core).
+
+
 ### Java Configuration
 | Variable | Description | Default |
 |---|---|---|
@@ -82,7 +130,7 @@ For a full list of available properties, see the [Unimus Wiki](https://wiki.unim
 |---|---|
 | `TZ` | Sets the container timezone (e.g., `America/New_York`). |
 
-### Unimus Defaults (Advanced)
+### Unimus Server Defaults (Advanced)
 You can configure system defaults (found in `/etc/default/unimus`) using environment variables prefixed with `DEFAULT_`.
 The conversion logic is the same as `PROP_` variables:
 1.  Removes `DEFAULT_` prefix.
@@ -91,8 +139,8 @@ The conversion logic is the same as `PROP_` variables:
 
 **Important:** For properties containing hyphens (e.g. `discovery-disabled`), you must use a hyphen in the environment variable name. This works in Docker Compose but may not be supported by all shells if running manually.
 
-#### Disabling Features
-Common use cases for disabling specific Unimus features:
+#### Disabling Unimus Server Features
+Common use cases for disabling specific Unimus Server features:
 
 | Variable | Property | Description |
 |---|---|---|
@@ -103,7 +151,7 @@ Common use cases for disabling specific Unimus features:
 | `DEFAULT_UNIMUS_CORE_DEVICE-CLI-DISABLED` | `unimus.core.device-cli-disabled` | Disable device CLI access. |
 | `DEFAULT_UNIMUS_SERVER_CORE_LISTENER-DISABLED` | `unimus.server.core.listener-disabled` | Disable the remote core listener (port 5509). |
 
-#### Server Address
+#### Unimus Server Address
 | Variable | Property | Description |
 |---|---|---|
 | `DEFAULT_SERVER_ADDRESS` | `server.address` | Bind address. Default: `0.0.0.0` |
@@ -113,5 +161,16 @@ Common use cases for disabling specific Unimus features:
 The container automatically generates configuration files at startup based on your environment variables. You can disable this behavior if you prefer to mount your own configuration files.
 | Variable | Default | Description |
 |---|---|---|
-| `MAKE_PROPERTIES` | `true` | If `true`, generates `/etc/unimus/unimus.properties` from `PROP_` variables. |
-| `MAKE_DEFAULTS` | `true` | If `true`, generates `/etc/default/unimus` from `DEFAULT_` variables. |
+| `MAKE_PROPERTIES` | `true` | If `true`, generates `/etc/unimus/unimus.properties` or `/etc/unimus-core/unimus-core.properties` from `PROP_` variables. |
+| `MAKE_DEFAULTS` | `true` | If `true`, generates `/etc/default/unimus` from `DEFAULT_` variables. (Server only) |
+
+
+## Development Builds
+Development builds of Unimus Server and Core are available by using the `dev` image tag.
+
+```yaml
+image: jokneemo/unimus:dev
+image: jokneemo/unimus-core:dev
+```
+
+These images are built automatically when a new public development build is available. 

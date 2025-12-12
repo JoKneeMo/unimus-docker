@@ -1,0 +1,114 @@
+name: Dev Build Unimus Server
+
+on:
+  schedule:
+    - cron: '12 * * * *'
+  workflow_dispatch:
+
+env:
+  REGISTRY: docker.io
+  IMAGE_NAME: jokneemo/unimus
+
+jobs:
+  check-dev:
+    runs-on: ubuntu-latest
+    outputs:
+      new_build: ${{ steps.compare.outputs.new_build }}
+      version_label: ${{ steps.compare.outputs.version_label }}
+      timestamp: ${{ steps.compare.outputs.timestamp }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Download Dev Jar
+        run: |
+          curl -L "https://download.unimus.net/unimus-dev/Unimus.jar" -o Unimus.jar
+
+      - name: Calculate Checksum
+        id: checksum
+        run: |
+          SHA256=$(sha256sum Unimus.jar | awk '{print $1}')
+          echo "Current SHA256: $SHA256"
+          echo "sha256=$SHA256" >> $GITHUB_OUTPUT
+
+      - name: Restore Checksum Cache
+        id: cache-restore
+        uses: actions/cache/restore@v3
+        with:
+          path: .dev-checksum
+          key: dev-checksum-${{ steps.checksum.outputs.sha256 }}
+      
+      - name: Compare and Decide
+        id: compare
+        if: steps.cache-restore.outputs.cache-hit != 'true'
+        run: |
+          echo "Cache miss! Checksum has changed"
+          echo "new_build=true" >> $GITHUB_OUTPUT
+          
+          # Fetch version
+          DEV_VERSION_STRING=$(curl -s "https://download.unimus.net/unimus-dev/Unimus.dev.version")
+          TIMESTAMP=$(date +%Y%m%d%H%M)
+          
+          VERSION_LABEL="dev-${DEV_VERSION_STRING}-${TIMESTAMP}"
+          echo "Version label: $VERSION_LABEL"
+          
+          echo "version_label=$VERSION_LABEL" >> $GITHUB_OUTPUT
+          echo "timestamp=$TIMESTAMP" >> $GITHUB_OUTPUT
+
+      - name: Create dummy cache file
+        if: steps.cache-restore.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p .dev-checksum
+          echo "${{ steps.checksum.outputs.sha256 }}" > .dev-checksum/checksum
+
+      - name: Save Checksum to Cache
+        if: steps.cache-restore.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v3
+        with:
+          path: .dev-checksum
+          # Use the checksum itself as the key. If it exists next time, it's a hit.
+          key: dev-checksum-${{ steps.checksum.outputs.sha256 }}
+
+  build-and-push-dev:
+    needs: check-dev
+    if: needs.check-dev.outputs.new_build == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Dev image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          push: true
+          platforms: linux/amd64,linux/arm64
+          build-args: |
+            UNIMUS_VERSION=dev
+          labels: |
+            version=${{ needs.check-dev.outputs.version_label }}
+          tags: |
+            ${{ env.IMAGE_NAME }}:dev
+            ghcr.io/${{ env.IMAGE_NAME }}:dev

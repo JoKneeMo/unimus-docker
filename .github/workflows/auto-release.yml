@@ -7,7 +7,8 @@ on:
 
 env:
   REGISTRY: docker.io
-  IMAGE_NAME: jokneemo/unimus
+  IMAGE_NAME_SERVER: jokneemo/unimus
+  IMAGE_NAME_CORE: jokneemo/unimus-core
 
 jobs:
   check-version:
@@ -85,7 +86,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push Docker image
+      - name: Build and push Unimus Server Docker image
         uses: docker/build-push-action@v4
         with:
           context: .
@@ -94,10 +95,25 @@ jobs:
           build-args: |
             UNIMUS_VERSION=${{ needs.check-version.outputs.version }}
           tags: |
-            ${{ env.IMAGE_NAME }}:${{ needs.check-version.outputs.version }}
-            ${{ env.IMAGE_NAME }}:latest
-            ghcr.io/${{ env.IMAGE_NAME }}:${{ needs.check-version.outputs.version }}
-            ghcr.io/${{ env.IMAGE_NAME }}:latest
+            ${{ env.IMAGE_NAME_SERVER }}:${{ needs.check-version.outputs.version }}
+            ${{ env.IMAGE_NAME_SERVER }}:latest
+            ghcr.io/${{ env.IMAGE_NAME_SERVER }}:${{ needs.check-version.outputs.version }}
+            ghcr.io/${{ env.IMAGE_NAME_SERVER }}:latest
+
+      - name: Build and push Unimus Core Docker image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          file: Dockerfile.core
+          push: true
+          platforms: linux/amd64,linux/arm64
+          build-args: |
+            UNIMUS_VERSION=${{ needs.check-version.outputs.version }}
+          tags: |
+            ${{ env.IMAGE_NAME_CORE }}:${{ needs.check-version.outputs.version }}
+            ${{ env.IMAGE_NAME_CORE }}:latest
+            ghcr.io/${{ env.IMAGE_NAME_CORE }}:${{ needs.check-version.outputs.version }}
+            ghcr.io/${{ env.IMAGE_NAME_CORE }}:latest
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1

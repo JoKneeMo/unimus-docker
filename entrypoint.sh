@@ -39,7 +39,7 @@ function make_defaults() {
 }
 
 function start_unimus() {
-    echo -n "Starting Unimus..."
+    echo "Starting Unimus..."
     JAVA_PARAMS=""
     [ ! -z "${JAVA_XMS}" ] && { JAVA_PARAMS="${JAVA_PARAMS} -Xms${JAVA_XMS}"; }
     [ ! -z "${JAVA_XMX}" ] && { JAVA_PARAMS="${JAVA_PARAMS} -Xmx${JAVA_XMX}"; }

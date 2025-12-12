@@ -1,0 +1,22 @@
+services:
+    unimus-core:
+        image: jokneemo/unimus-core:latest # Docker Hub
+        #image: ghcr.io/jokneemo/unimus-core:latest # GitHub Container Registry
+        build:
+          context: .
+          dockerfile: Dockerfile-core
+        restart: unless-stopped
+        volumes:
+            - /usr/share/zoneinfo/America/New_York:/etc/localtime:ro
+        environment:
+          TZ: America/New_York
+
+          # Unimus Props (/etc/unimus-core/unimus-core.properties)
+          PROP_UNIMUS_ADDRESS: 10.10.10.58
+          PROP_UNIMUS_PORT: 5509
+          PROP_UNIMUS_ACCESS_KEY: really_long_access_key_from_the_zone_of_this_core
+
+          # Java Settings
+          #JAVA_XMS: 512m
+          #JAVA_XMX: 1024m
+          #JAVA_OPTS:
