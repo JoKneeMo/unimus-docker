@@ -2,8 +2,7 @@ name: Auto Release Unimus
 
 on:
   schedule:
-    # Run daily at 00:00 UTC
-    - cron: '0 0 * * *'
+    - cron: '15 */3 * * *'
   workflow_dispatch:
 
 env:

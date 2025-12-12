@@ -18,20 +18,25 @@ RUN apk update && apk add --no-cache \
     && adduser -S -D -u 1000 -G unimus unimus \
     && echo "UTC" > /etc/timezone
 
-RUN curl -L https://download.unimus.net/unimus/${UNIMUS_VERSION}/Unimus.jar --create-dirs -o /opt/unimus/Unimus.jar \
+RUN if [ "${UNIMUS_VERSION}" = "dev" ]; then \
+        DOWNLOAD_URL="https://download.unimus.net/unimus-dev/Unimus.jar"; \
+    else \
+        DOWNLOAD_URL="https://download.unimus.net/unimus/${UNIMUS_VERSION}/Unimus.jar"; \
+    fi \
+    && curl -L "${DOWNLOAD_URL}" --create-dirs -o /opt/unimus/Unimus.jar \
     && mkdir -p \
-    /etc/unimus \
-    /var/log/unimus \
-    /etc/default \
+        /etc/unimus \
+        /var/log/unimus \
+        /etc/default \
     && touch \
-    /etc/unimus/unimus.properties \
-    /etc/default/unimus \
+        /etc/unimus/unimus.properties \
+        /etc/default/unimus \
     && chown -R unimus:unimus \
-    /opt/unimus \
-    /etc/unimus \
-    /var/log/unimus \
-    /etc/default/unimus \
-    /etc/timezone
+        /opt/unimus \
+        /etc/unimus \
+        /var/log/unimus \
+        /etc/default/unimus \
+        /etc/timezone
 
 COPY --chmod=755 docker-entrypoint.sh /docker-entrypoint.sh
 
