@@ -104,7 +104,7 @@ jobs:
         uses: docker/build-push-action@v4
         with:
           context: .
-          file: Dockerfile.core
+          file: Dockerfile-core
           push: true
           platforms: linux/amd64,linux/arm64
           build-args: |
