@@ -33,9 +33,20 @@ jobs:
           VERSION=$(echo "$OUTPUT" | grep "^VERSION=" | cut -d= -f2)
           EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
           echo "Detected latest version: $VERSION"
-          
+
+          # Check if tag exists locally OR remotely
+          EXISTS_LOCALLY=false
           if git rev-parse "v$VERSION" >/dev/null 2>&1; then
-            echo "Version $VERSION already released."
+            EXISTS_LOCALLY=true
+          fi
+          
+          EXISTS_REMOTELY=false
+          if git ls-remote --tags origin | grep -q "refs/tags/v$VERSION"; then
+            EXISTS_REMOTELY=true
+          fi
+
+          if [ "$EXISTS_LOCALLY" = true ] || [ "$EXISTS_REMOTELY" = true ]; then
+            echo "Version $VERSION already released (Local: $EXISTS_LOCALLY, Remote: $EXISTS_REMOTELY)."
             echo "new_version=false" >> $GITHUB_OUTPUT
           else
             echo "Version $VERSION is new!"
@@ -45,15 +56,6 @@ jobs:
             echo "changelog<<$EOF" >> $GITHUB_OUTPUT
             echo "$OUTPUT" | sed -n '/^<<EOF$/,/^EOF$/p' | sed '1d;$d' >> $GITHUB_OUTPUT
             echo "$EOF" >> $GITHUB_OUTPUT
-          fi
-      
-      - name: Check tags via git ls-remote (if local check might fail due to shallow fetch)
-        if: steps.check.outputs.new_version == 'true'
-        run: |
-          VERSION=${{ steps.check.outputs.version }}
-          if git ls-remote --tags origin | grep -q "refs/tags/v$VERSION"; then
-              echo "Tag v$VERSION actually exists on remote. Skipping."
-              echo "new_version=false" >> $GITHUB_OUTPUT
           fi
 
   build-and-release:
