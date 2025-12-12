@@ -1,0 +1,45 @@
+services:
+    unimus:
+        image: jokneemo/unimus:latest # Docker Hub
+        #image: ghcr.io/jokneemo/unimus:latest # GitHub Container Registry
+        build: .
+        restart: unless-stopped
+        ports:
+            - "8085:8085" # Unimus Web UI
+            - "5509:5509" # Unimus Core
+        volumes:
+            - /usr/share/zoneinfo/America/New_York:/etc/localtime:ro
+            - ./unimus/unimus.properties:/etc/unimus/unimus.properties
+            - ./unimus/unimus.default:/etc/default/unimus
+        environment:
+          TZ: America/New_York
+
+          # Unimus Props (/etc/unimus/unimus.properties)
+          PROP_LICENSE_KEY: your-license-key
+          PROP_DATABASE_TYPE: POSTGRESQL
+          PROP_DATABASE_HOST: postgres
+          PROP_DATABASE_PORT: 5432
+          PROP_DATABASE_NAME: unimus
+          PROP_DATABASE_USER: unimus
+          PROP_DATABASE_PASSWORD: database-password
+          PROP_DATABASE_ENCRYPTION_KEY: secure-encryption-key-string
+          #PROP_CORE_CONNECTION_SERVER_PORT: 5509
+
+          # Unimus Defaults (/etc/default/unimus)
+          #DEFAULT_SERVER_ADDRESS: 0.0.0.0
+          #DEFAULT_SERVER_PORT: 8085
+
+          # Java Settings
+          #JAVA_XMS: 512m
+          #JAVA_XMX: 1024m
+          #JAVA_OPTS:
+
+    postgres:
+        image: postgres:17-alpine
+        restart: unless-stopped
+        environment:
+          POSTGRES_USER: unimus
+          POSTGRES_PASSWORD: database-password
+          POSTGRES_DB: unimus
+        volumes:
+          - ./postgres:/var/lib/postgresql/data
