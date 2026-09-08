@@ -1,9 +1,9 @@
 # Unimus Docker
-[![Auto Release](https://github.com/JoKneeMo/unimus-docker/actions/workflows/auto-release.yml/badge.svg?branch=main)](https://github.com/JoKneeMo/unimus-docker/actions/workflows/auto-release.yml)  [![Dev Server Build](https://github.com/JoKneeMo/unimus-docker/actions/workflows/dev-server.yml/badge.svg?branch=main)](https://github.com/JoKneeMo/unimus-docker/actions/workflows/dev-server.yml)  [![Dev Core Build](https://github.com/JoKneeMo/unimus-docker/actions/workflows/dev-core.yml/badge.svg?branch=main)](https://github.com/JoKneeMo/unimus-docker/actions/workflows/dev-core.yml)
+[![Stable Release](https://github.com/JoKneeMo/unimus-docker/actions/workflows/stable-release.yml/badge.svg?branch=main)](https://github.com/JoKneeMo/unimus-docker/actions/workflows/stable-release.yml)  [![Dev Release](https://github.com/JoKneeMo/unimus-docker/actions/workflows/dev-release.yml/badge.svg?branch=main)](https://github.com/JoKneeMo/unimus-docker/actions/workflows/dev-release.yml)
 
 Lightweight Docker container for [Unimus](https://unimus.net/), a network automation and configuration management solution.
 
-Available on:
+Available for:
  - Server
     - Docker Hub: [jokneemo/unimus](https://hub.docker.com/r/jokneemo/unimus)
     - GitHub Container Registry: [ghcr.io/jokneemo/unimus](https://github.com/jokneemo/unimus-docker/pkgs/container/unimus)
@@ -166,11 +166,15 @@ The container automatically generates configuration files at startup based on yo
 
 
 ## Development Builds
-Development builds of Unimus Server and Core are available by using the `dev` image tag.
+Development builds of Unimus Server and Core are available by using the `dev` image tags.
 
 ```yaml
 image: jokneemo/unimus:dev
+image: jokneemo/unimus:dev-2.10.0-Beta2
 image: jokneemo/unimus-core:dev
+image: jokneemo/unimus-core:dev-2.10.0-Beta2
 ```
 
-These images are built automatically when a new public development build is available. 
+These images are built automatically when a new public development build is available.
+The `dev` tag tracks the latest development build.
+Each image is also tagged with the version number published by Unimus, prefixed with `dev-`.

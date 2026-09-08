@@ -1,31 +1,30 @@
 #!/usr/bin/env python3
-import urllib.request
+import argparse
+from pathlib import Path
 import re
 import sys
+import urllib.request
 
 URL = "https://download.unimus.net/unimus/Changelog.txt"
+VERSION_PATTERN = r"\d+\.\d+\.\d+(?:-[A-Za-z0-9]+(?:[.-][A-Za-z0-9]+)*)?"
 
-def get_changelog():
-    try:
-        with urllib.request.urlopen(URL) as response:
-            return response.read().decode('utf-8')
-    except Exception as e:
-        print(f"Error fetching changelog: {e}", file=sys.stderr)
-        sys.exit(1)
+def get_changelog(url=URL):
+    with urllib.request.urlopen(url, timeout=30) as response:
+        return response.read().decode('utf-8-sig')
 
 def parse_version(content, target_version=None):
     # Split content by lines
     lines = content.splitlines()
     
     # Regex to find version headers like "= Version 2.8.0 ="
-    version_regex = re.compile(r"^= Version (\d+\.\d+\.\d+) =$")
+    version_regex = re.compile(rf"^=\s+Version ({VERSION_PATTERN})\s+=$")
     
     found_version = None
     changelog_lines = []
     capturing = False
     
     for line in lines:
-        match = version_regex.match(line)
+        match = version_regex.fullmatch(line.strip())
         if match:
             match_version = match.group(1)
             
@@ -53,6 +52,34 @@ def parse_version(content, target_version=None):
         return found_version, changelog_text
     else:
         return None, None
+
+def fetch_release(product="server", channel="stable", target_version=None):
+    directory = "unimus" if product == "server" else "unimus-core"
+    if channel == "dev":
+        directory += "-dev"
+    base_url = f"https://download.unimus.net/{directory}"
+
+    if channel == "dev":
+        filename = "Unimus.dev.version" if product == "server" else "Unimus-Core.dev.version"
+        version = get_changelog(f"{base_url}/{filename}").strip()
+        if not re.fullmatch(VERSION_PATTERN, version) or len(version) > 128:
+            raise ValueError(f"Invalid development version: {version!r}")
+        if target_version and target_version != version:
+            raise ValueError(f"Current development version is {version}, not {target_version}")
+
+        content = get_changelog(f"{base_url}/Changelog.txt")
+        _, notes = parse_version(content, version)
+        if notes is None:
+            _, notes = parse_version(content, version.split("-", 1)[0])
+    else:
+        content = get_changelog(f"{base_url}/Changelog.txt")
+        version, notes = parse_version(content, target_version)
+        if version and "-" in version:
+            raise ValueError(f"Unexpected prerelease version in stable changelog: {version}")
+
+    if not version or not notes:
+        raise ValueError(f"No changelog found for {product} {target_version or version or channel}")
+    return version, format_changelog(notes)
 
 def format_changelog(text):
     lines = text.splitlines()
@@ -88,25 +115,29 @@ def format_changelog(text):
     return "\n".join(formatted_lines)
 
 def main():
-    target_version = None
-    if len(sys.argv) > 1:
-        target_version = sys.argv[1]
+    parser = argparse.ArgumentParser(description="Fetch Unimus Server or Core release notes.")
+    parser.add_argument("version", nargs="?", help="Version to select (defaults to latest)")
+    parser.add_argument("--product", choices=("server", "core"), default="server")
+    parser.add_argument("--channel", choices=("stable", "dev"), default="stable")
+    parser.add_argument("--notes-file", type=Path, help="Write Markdown release notes to this file")
+    parser.add_argument("--github-output", type=Path, help="Append version to a GitHub step output file")
+    args = parser.parse_args()
 
-    content = get_changelog()
-    version, notes = parse_version(content, target_version)
-    
-    if version:
-        formatted_notes = format_changelog(notes)
-        print(f"VERSION={version}")
-        print("<<EOF")
-        print(formatted_notes)
-        print("EOF")
-    else:
-        if target_version:
-            print(f"Version {target_version} not found in changelog", file=sys.stderr)
-        else:
-            print("No version found", file=sys.stderr)
+    try:
+        version, notes = fetch_release(args.product, args.channel, args.version)
+        if args.notes_file:
+            args.notes_file.write_text(notes + "\n", encoding="utf-8")
+        if args.github_output:
+            with args.github_output.open("a", encoding="utf-8") as output:
+                output.write(f"version={version}\n")
+    except (OSError, ValueError) as exc:
+        print(f"Error fetching release: {exc}", file=sys.stderr)
         sys.exit(1)
+
+    print(f"VERSION={version}")
+    print("<<EOF")
+    print(notes)
+    print("EOF")
 
 if __name__ == "__main__":
     main()

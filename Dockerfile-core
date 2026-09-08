@@ -1,6 +1,7 @@
 FROM alpine:3
 
 ARG UNIMUS_VERSION="-%20Latest"
+ARG UNIMUS_SHA256=""
 
 LABEL org.opencontainers.image.authors="JoKneeMo <https://github.com/JoKneeMo>"
 LABEL org.opencontainers.image.source="https://github.com/JoKneeMo/unimus-docker"
@@ -22,11 +23,14 @@ RUN apk update && apk add --no-cache \
     && echo "UTC" > /etc/timezone
 
 RUN if [ "${UNIMUS_VERSION}" = "dev" ]; then \
-        DOWNLOAD_URL="https://download.unimus.net/unimus-core-dev/Unimus-Core.jar"; \
+        DOWNLOAD_URL="https://unimus.net/download-unimus-core/dev-builds/Unimus-Core.jar"; \
     else \
         DOWNLOAD_URL="https://download.unimus.net/unimus-core/${UNIMUS_VERSION}/Unimus-Core.jar"; \
     fi \
-    && curl -L "${DOWNLOAD_URL}" --create-dirs -o /opt/unimus-core/Unimus-Core.jar \
+    && curl -fSL --retry 3 "${DOWNLOAD_URL}" --create-dirs -o /opt/unimus-core/Unimus-Core.jar \
+    && if [ -n "${UNIMUS_SHA256}" ]; then \
+        echo "${UNIMUS_SHA256}  /opt/unimus-core/Unimus-Core.jar" | sha256sum -c -; \
+    fi \
     && mkdir -p \
         /etc/unimus-core \
         /var/log/unimus-core \

@@ -1,0 +1,124 @@
+name: Stable Release Unimus
+
+on:
+  schedule:
+    - cron: '15 */3 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: stable-release
+  cancel-in-progress: false
+
+jobs:
+  workflow-keepalive:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - name: Keep scheduled workflow active
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api --method PUT "repos/$GITHUB_REPOSITORY/actions/workflows/stable-release.yml/enable"
+
+  build-and-release:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - product: server
+            title: Server
+            image: jokneemo/unimus
+            dockerfile: Dockerfile
+          - product: core
+            title: Core
+            image: jokneemo/unimus-core
+            dockerfile: Dockerfile-core
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.x'
+
+      - name: Fetch version and changelog
+        id: release
+        env:
+          PRODUCT: ${{ matrix.product }}
+        run: |
+          python3 scripts/fetch_changelog.py --product "$PRODUCT" \
+            --notes-file release-notes.md --github-output "$GITHUB_OUTPUT"
+
+      - name: Check whether this product version was released
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ matrix.product }}-v${{ steps.release.outputs.version }}
+        run: |
+          # Check the release, not just its tag, so a failed release can be retried.
+          STATUS=$(curl -sSL --retry 3 --output "$RUNNER_TEMP/release.json" --write-out '%{http_code}' \
+            --header "Authorization: Bearer $GH_TOKEN" \
+            --header "Accept: application/vnd.github+json" \
+            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG")
+          case "$STATUS" in
+            200) echo "new_version=$(jq -r '.draft' "$RUNNER_TEMP/release.json")" >> "$GITHUB_OUTPUT" ;;
+            404) echo "new_version=true" >> "$GITHUB_OUTPUT" ;;
+            *) echo "Release lookup failed with HTTP $STATUS" >&2; exit 1 ;;
+          esac
+
+      - name: Set up QEMU
+        if: steps.check.outputs.new_version == 'true'
+        uses: docker/setup-qemu-action@v4
+
+      - name: Set up Docker Buildx
+        if: steps.check.outputs.new_version == 'true'
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to Docker Hub
+        if: steps.check.outputs.new_version == 'true'
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Log in to the Container registry
+        if: steps.check.outputs.new_version == 'true'
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        if: steps.check.outputs.new_version == 'true'
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: true
+          platforms: linux/amd64,linux/arm64
+          build-args: |
+            UNIMUS_VERSION=${{ steps.release.outputs.version }}
+          tags: |
+            ${{ matrix.image }}:${{ steps.release.outputs.version }}
+            ${{ matrix.image }}:latest
+            ghcr.io/${{ matrix.image }}:${{ steps.release.outputs.version }}
+            ghcr.io/${{ matrix.image }}:latest
+
+      - name: Create GitHub Release
+        if: steps.check.outputs.new_version == 'true'
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ matrix.product }}-v${{ steps.release.outputs.version }}
+          name: "${{ matrix.title }}: v${{ steps.release.outputs.version }}"
+          target_commitish: ${{ github.sha }}
+          body_path: release-notes.md
+          draft: false
+          prerelease: false
