@@ -23,6 +23,7 @@ jobs:
           gh api --method PUT "repos/$GITHUB_REPOSITORY/actions/workflows/stable-release.yml/enable"
 
   build-and-release:
+    name: Stable ${{ matrix.title }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
